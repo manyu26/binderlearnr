@@ -1,0 +1,404 @@
+---
+title: "Introduction to SEM"
+output: 
+  learnr::tutorial:
+    progressive: true
+    allow_skip: true
+runtime: shiny_prerendered
+description: "Welcome to learnr tutorials!"
+
+---
+
+```{r setup, include=F}
+
+
+library(learnr)
+library(lavaan)
+library(dplyr)
+library(semPlot)
+tutorial_options(
+  exercise.timelimit = 60,
+  exercise.checker = function(check_code, ...) {
+    list(
+      message = eval(parse(text = check_code)),
+      correct = logical(0),
+      type = "info",
+      location = "append"
+    )
+  }
+)
+knitr::opts_chunk$set(error = TRUE)
+
+#setwd("C:/Users/c00301945/Dropbox/02_LMYwork/00.RFPs_tasks/IUSECareer/learnr_Module1_data/")
+#rmarkdown::run("learnr_Module1.Rmd")
+data <- read.csv("https://raw.githubusercontent.com/manyu26/PsychLearnR/master/learnrdatasample_ACE.csv")
+ACEsum<-dplyr::select(data, ACE1:ACE10)
+data$ACEtotal<-rowSums(ACEsum, na.rm=T)
+
+model1 <- '
+  RSQfearful ~ ACEtotal
+  RSQdismiss ~ ACEtotal
+'
+
+
+```
+
+## Learning Objectives
+
+Structural Equation Modeling (SEM) integrates many different multivariate techniques into one model fitting framework. These techniques include measurement theory, factor analysis, path analysis, regression, and simultaneouso equations. 
+
+In this tutorial, only the basics of SEM will be covered. Specifically, you will learn to:
+
+* describe the key components of SEM;
+* identify the key concepts/theories behind SEM; 
+* run several kinds of SEMs using R code. 
+* interpret SEM output, specifically, model fit indices. 
+
+
+## Real World Data - Introduction
+
+Data are used to answer research questions. In this lesson, we are going to use college students' report of their childhood and adult relationship experiences to answer the following research questions:
+* Does ACE predict fearful attachment?
+* Does ACE predict dismissing?
+
+The data have already been loaded for you. The data is named as ```data```. The dataset contains the following measures. Please consult the [complete codebook](https://drive.google.com/file/d/110cKnsb5pTcpf2tjOJ5I437jWXcR1IsE/view?usp=sharing) for details. Variable names are listed below in parenthesis. 
+
+* Participant ID (```id```)
+* Age (```age```)
+* Gender (```gender```: 1=male; 2=female)
+* Adverse Childhood Experiences (```ACE1:ACE10```; ```ACEtotal```)
+* Childhood Trauma Questionnaire (```CTQ1:CTQ28```; ```CTQemotional```, ```CTQphysical```, ```CTQsexual```, ```CTQemoneglect```, ```CTQphyneglect```, ```CTQmin```) 
+* Relationship Satisfaction Questionnaire (```RSQ1:RSQ30```; ```RSQsecure```, ```RSQfearful```, ```RSQpreop```, ```RSQdismiss```, ```RSQself```, ```RSQother```)
+
+(Note: all reversed coded items have an "r" at the end)
+
+## Real World Data - Testing hypotheses
+
+To answer the research questions, we can use two separate regression equations (Y=a+bx):
+
+1. RSQfearful = (intercept) + b(ACEtotal)
+2. RSQdismiss = (intercept) + b(ACEtotal)
+
+Hit "run" for the following regression model that tests research question 1. 
+
+
+```{r regression1, exercise=TRUE}
+
+reg1<- lm(RSQfearful ~ ACEtotal, data)
+summary(reg1)
+
+```
+
+Read and interpret the output. 
+
+```{r regq1, echo=FALSE}
+question("Did ACE significantly predict fearful attachment?",
+  answer("No. p is 3.154 so it's larger than .05", message="You were probably tricked by the scientific expression - which is totally common. The p-value was actually .0000000315!"),
+  answer("Yes. The higher ACE, the higher one's fearful attachment", correct = TRUE, message="great job! p is less than .05 and the regression coefficient is positive, i.e., .12727"),
+  answer("Yes. The lower ACE, the higher one's fearful attachment", message="Notice that the estimate value is positive, i.e., +0.12727, meaning that there is a positive relationship between the two variables"),
+  answer("What's going on? I don't know...", message="It's OK! Raise your hand and let us know! You are not alone!"),
+  allow_retry = TRUE
+)
+```
+
+Now can you try and edit the code below to run a simple linear regression analysis for the second research question? i.e.,
+
+2. RSQdismiss = (intercept) + b(ACEtotal)
+
+
+```{r regression2, exercise=TRUE}
+
+reg2<- lm(Y ~ X, data)
+summary(reg2)
+
+```
+
+```{r regression2-solution}
+
+reg2<- lm(RSQdismiss ~ ACEtotal, data)
+summary(reg2)
+
+```
+
+## Constructing a Path Model 
+
+Now that we quickly revisited regression, let's move on to computing a structural equation model. As we will explain later, SEM generally contains a path model and a measurement model. Path model is usually the easiest to understand, so let's start from constructing a path model.
+
+In linear regression, we can only have one outcome variable, can we combine the following into a single model?
+
+1. RSQfearful = (intercept) + b(ACEtotal)
+2. RSQdismiss = (intercept) + b(ACEtotal)
+
+Yes we can! SEM allows you to combine different regression equations into a single model. 
+
+First, we "draw" the model. Let's call this ```model1```. Can you guess how we express the model? Type below. Feel free to take a look at the hints. Hit "Run Code". 
+
+```{r pathmodelex, exercise=TRUE}
+
+model1 <- '
+
+
+'
+```
+
+```{r pathmodelex-solution}
+model1 <- '
+  RSQfearful ~ ACEtotal
+  RSQdismiss ~ ACEtotal
+'
+```
+
+```{r pathmodelex-hint}
+#Recall how you type the regression equation (Y~X)
+#A path model is similar! You will type a separate line for a separate outcome Y. 
+#Something like this:
+
+model1 <- '
+  Y1 ~ X
+  Y2 ~ X
+'
+
+#Still don't know the answer? Hit "next hint" for the solution.
+
+```
+
+Now that the model is identified and named as ```model1```, you can then compute the regression coefficients using a function called ```sem()``` in the R package ```lavaan```.
+
+```{r pathmod1, exercise = TRUE}
+pathmod1<-sem(model1, data)
+summary(pathmod1,  fit.measures = TRUE)
+```
+
+Read and interpret the output. 
+
+```{r pathmod1q1, echo=FALSE}
+question("Which of the following is true? (Select all that apply)",
+  answer("ACE predicted both dismissive and fearful adult attachment style", correct=TRUE),
+  answer("The two types of attachment style correlates", correct = TRUE),
+  answer("The model fits the data well", correct=TRUE),
+  allow_retry = TRUE
+)
+```
+
+<div id="filter-hint">
+**Hint:** 
+For regression results, look under the 'regression' section. Check whether the p-value was less than .05.
+
+For correlation results, look under the 'covariances' section (notice the two tails ~~ instead of one for correlation).
+
+For model fit results, look first under 'Model Test User Model' first. You will notice that the df is zero. This is because our model is a just-identified model and so the model fit indices are meaningless - we will talk more about this later.
+
+</div>
+
+
+## Some Key concepts in SEM I
+
+Now that we have ran our first model, we can look at some key concepts of SEM with the type of model we saw so far.
+
+First, let's visualize the path model. 
+
+```{r}
+
+pathmod1<-sem(model1, data)
+semPlot::semPaths(pathmod1, whatLabels="std" 
+                   ,label.font = 16 
+                  , sizeMan = 10, sizeLat = 10,
+                  edge.label.cex=1.2)
+
+```
+
+### Exogenous vs. Endogenouso variables
+
+Endogenous variables are those that are caused by variables in the system (i.e., dependent variables). They have at least on arrows pointing towards them. 
+
+Exogenous variablese are those that are caused by variables outside the system (i.e., independent variables). They do not have any arrows pointing towards them. 
+
+### Just-identified vs. over-identified. 
+
+Look at the diagram. You will notice that all our variables are interconnected. This means that there is no free parameter (i.e., zero degree of freedom). This is called a *just-identified* and saturated model. Think of it as 4X+2=6. In this equation, X must be 1. We will then say that X is a known variable. This model is said to be just-identified. While we can still get regression coefficients for each pathway, we cannot get the model fit information. 
+
+*Underidentified* or *undidentified* model is even worse. Consider 4A+2B=20. In this equation, (A, B) can be (4, 2) or (1, 7), etc. In other words, the equation does not have unique parameters. X and Y are unknown variables. Not only did we not get our estimates, we also do not get model fit data.
+
+In SEM, we aim for an *over-identified* model to inform us about model fit. Put simply, 
+
+* **Unidentified** knowns < unknowns
+* **Just identified** knowns = unknowns
+* **over identified** knowns > unknowns
+
+We can change underidentified or just-identified model by
+* adding more knowns (i.e., observed variables) to the model we hypothesized
+* reducing unknowns 
+
+### Estimating model fit 
+
+In most cases, SEM does not take the raw data (rows and columns of data of your sample), but it takes a variance and covariance matrix of the variables included in your data to analyze the model fit. 
+
+Example of a variance/covariance matrix:
+```{r echo=FALSE}
+includedvariables<-dplyr::select(data, ACEtotal, RSQdismiss, RSQfearful)
+includedvariables<-includedvariables[complete.cases(includedvariables),]
+cov(includedvariables)
+```
+
+The goal of SEM is to summarize the variance/covariance matrix by specifying a simpler underlying structure. Model fit is computed by comparing the implied var/covar matrix from the simpler version with the var/covar matrix from the original version. 
+
+Maximum likelihood (ML) is used to estimate parameters in the model (just like in linear regression). Log likelihood (LL) is used to test our global model fit. Specifically, LL is computed for the var/covar matrices of both the *User Model* (our defined model, let's call it Model A) and the *Baseline Model* (Model B) which is simply a perfect fit, saturated null version of Model A (with constraints set such that all estimates are assumed to be equal to zero). 
+
+Chi-square = LLB - LLA, with df=dfB-dfA
+
+If p > .05, we will say that our model fits well (the implied var/covar matrix is not significantlly different from the var/covar matrices of the perfect fit model). 
+
+However, note that Chi-square can be biased. When you have a large sample, your Chi-square statistics is almost always significant. 
+
+There are other model fit indices. Generally, model fit the data well if:
+
+* Chi-square for the User Model is non-significant (p > .05)
+* RMSEA < .08
+* CFI > .90
+* SRMR < .08
+* RFI close to 1
+
+Kline (2015) suggested to report the model chi-square, the RMSEA, the CFI and the SRMR.
+
+
+## Construction a Path Model II
+
+SEMs often look a bit more complex than the first model we run. For example, you may want to control for gender for some variables and include more attachment styles.
+
+Feel free to draw your own model and compute the results. 
+
+```{r path2, exercise=TRUE}
+model2 <- '
+  RSQfearful ~ ACEtotal+gender
+  RSQdismiss ~ ACEtotal+gender
+  RSQsecure ~ ACEtotal
+  RSQpreop ~ ACEtotal
+'
+pathmod2<-sem(model2, data)
+summary(pathmod2,  fit.measures = TRUE)
+
+
+#below is the plot codes. Do not change anything.
+semPlot::semPaths(pathmod2, whatLabels="std", intercepts=FALSE
+                  ,nCharNodes=0, 
+                       nCharEdges=0,
+                       curveAdjacent = TRUE,title=TRUE,
+                   label.font = 16 
+                  , sizeMan = 10, sizeLat = 10,
+                  edge.label.cex=1.2
+                  ,layout="spring",curvePivot=TRUE)
+
+```
+
+Were you able to run a over-identified model? The easiest way to see if your model is overidentified is to see if you get a value under "Model Test User Model". If you run my example, you should see that there are values under the user model section. 
+
+
+
+## Constructing a Measurement Model
+
+In addition to a path model, SEM also consists of a (optional) measurement model. This part of the model is based on confirmatory factor analysis (CFA).
+
+### Confirmatory Factor Analysis 
+
+Recall that CFA is used when you have a factor structure in your mind and you want to confirm that the structure is indeed the same as how you hypothesized it. 
+
+For example, variables for CTQ physical abuse, emotional abuse, etc. should all be separate factors. Let's see if it's the case for our sample. 
+
+
+```{r path3, exercise=TRUE}
+model3 <- '
+  emotional =~ CTQ3+CTQ8+CTQ14+CTQ18+CTQ25
+  physical =~ CTQ9+CTQ11+CTQ12+CTQ15+CTQ17
+
+'
+pathmod3<-sem(model3, data)
+summary(pathmod3,  fit.measures = TRUE, standardized=TRUE)
+
+#below is the plot codes. Do not change anything.
+semPlot::semPaths(pathmod3, whatLabels="std", intercepts=FALSE
+                  ,nCharNodes=4, 
+                       nCharEdges=0,
+                       curveAdjacent = TRUE,title=TRUE,
+                   label.font = 10 
+                  , sizeMan = 10, sizeLat = 10,
+                  edge.label.cex=1.2
+                  ,layout="spring",curvePivot=TRUE)
+
+```
+
+Read the output and observe the model fit indices. Notice also that emotional is automatically included as a correlate of physical abuse. 
+
+### Observed and latent variables
+
+In the example above, each measured item (CTQ3, CTQ8, CTQ9, etc.) is **observed** variables. This is because we collected data directly on these items. However, we did not directly observe physical and emotional abuse. We did not ask participants directly whether they felt they received physical/emotional abuse, nor did we go back in time and observed if the participant indeed experienced these abusive behaviors. Therefore, we call the physical abuse (```physical```) and emotional abuse (```emotional```) latent variables. 
+
+In short, 
+
+* observed variables = measured variables
+* latent variables = unobserved, indirectly measured variables *indicated* by the observed variables.  
+
+We use different shapes to represent the types of variables
+
+* observed - rectangular 
+* latent - elipse
+
+### Error terms
+
+You may wonder why in the diagram we have some arrows and numbers surrounding the observed variables. They are the errors of the measurement that is estimated based on 
+
+observed score = true score  + error. 
+
+Of course we don't know the "true" true score, but here, we refer to the latent variable (the concept we are trying to measure from our observed variables). Error is latent in a sense (we don't really know the true error), so in a SEM diagram, it's often drawn using a small elipse/circle.
+
+*Advanced knowledge: Sometimes, if you want to indicate that these errors are dependent, you can include in the model that these errors (i.e., the measured items) are correlated using ```CTQ3~~CTQ8```.*
+
+### Parameter constraints
+
+You may also notice that one path for each factor (i.e., factor loading) is restricted to 1. This goes back to the idea of over-identified model. By setting restriction to one path, we increase the known variable by one. We can now get model fit indices. 
+
+The item that was used to set constraint is the "reference item". Other loadings are then interpreted relative to the reference item (i.e., yielding a standardized solution). 
+
+## Constructing a SEM
+
+Now we are ready to combine our measurement model (CFA) with our path model. Let's say that we want to test whether childhood emotional and phyiscal abuse predict adult dismissive and fearful attachment styles, we will simply add the regression equation to the model. We do not have to calculate a score for emotional and physical abuse because they are *latent* variables. Simply write their latent names in the regression equation. 
+
+```{r path4, exercise=TRUE}
+model4 <- '
+  emotional =~ CTQ3+CTQ8+CTQ14+CTQ18+CTQ25
+  physical =~ CTQ9+CTQ11+CTQ12+CTQ15+CTQ17
+
+  RSQdismiss ~ emotional
+  RSQfearful ~ physical
+
+'
+pathmod4<-sem(model4, data)
+summary(pathmod4,  fit.measures = TRUE)
+
+#below is the plot codes. Do not change anything.
+semPlot::semPaths(pathmod4, whatLabels="std", intercepts=FALSE
+                  ,nCharNodes=0, 
+                       nCharEdges=0,
+                       curveAdjacent = TRUE,title=TRUE, layout="spring",curvePivot=TRUE)
+
+```
+
+## Recap: The Theories Behind SEM
+
+Our lesson focuses on the introduction of a type of SEM that is most used in social and behavioral sciences. Put simply, Structural equation modeling (SEM) invovles the construction of a **model** with different aspects of interrelated phenomenon (**structure** which is basically a series of equations).  It generally involves a **path model** (think of it as many regression equations) and a **measurement model** (think of it as factor analysis).
+
+The SEM toolkit includes confirmatory factor analysis, confirmatory composite analysis, path analysis, multi-group modeling, longitudinal modeling, partial least squares path modeling, latent growth modeling and hierarchical or multi-level modeling. SEM can be generally broken down into four parts. 
+
+* Model Specification
+* Estimation of free parameters
+* Evaluation of models and model fit
+* Model modification
+
+There is so much more you can do with SEM, such as 
+
+* multiple groups analysis - e.g., whether the model is the same for different genders. 
+* mediation analysis - adding estimate of indirect paths
+* multi-level/longitudinal SEM 
+
+## User Feedback
+
+I collect feedback to help me improve my teaching tool. Please [provide feedback via a brief survey](https://ullafayettepsyc.sjc1.qualtrics.com/jfe/form/SV_6SfQDtWnk0Rwgp8).  
